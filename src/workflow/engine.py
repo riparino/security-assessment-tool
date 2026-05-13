@@ -9,6 +9,7 @@ import re
 import uuid
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
 from rich.console import Console
 from rich.markup import escape
@@ -494,7 +495,11 @@ class AssessmentEngine:
 
     @staticmethod
     def _extract_ports(description: str) -> str | None:
-        match = re.search(r"(?:ports?|port range)\s*[:=]?\s*([0-9,\-\s]+)", description, re.IGNORECASE)
+        match = re.search(
+            r"(?:ports?|port range)\s*[:=]?\s*([0-9,\s-]+)",
+            description,
+            re.IGNORECASE,
+        )
         if not match:
             return None
         return match.group(1).replace(" ", "")
@@ -511,7 +516,11 @@ class AssessmentEngine:
         match = re.search(r"https?://[^\s]+", description)
         if not match:
             return None
-        return match.group(0).rstrip(").,;")
+        candidate = match.group(0)
+        parsed = urlparse(candidate)
+        if parsed.scheme in ("http", "https") and parsed.netloc:
+            return candidate
+        return None
 
     # ------------------------------------------------------------------
     # Report & exit
