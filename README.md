@@ -35,12 +35,24 @@ cp .env.example .env
 # Edit .env with your Azure OpenAI or OpenAI credentials
 ```
 
-Minimum required (Azure OpenAI):
+Azure OpenAI (API key auth):
 ```
 AZURE_OPENAI_ENDPOINT=https://YOUR_RESOURCE.openai.azure.com/
 AZURE_OPENAI_API_KEY=your-key
 AZURE_OPENAI_DEPLOYMENT=gpt-4o
 ```
+
+Azure OpenAI (Azure CLI token auth):
+```bash
+az login
+```
+```
+AZURE_OPENAI_ENDPOINT=https://YOUR_RESOURCE.openai.azure.com/
+AZURE_USE_CLI_AUTH=true
+AZURE_OPENAI_DEPLOYMENT=gpt-4o
+```
+For CLI-token auth, your signed-in identity must have an Azure role on the resource
+such as **Cognitive Services OpenAI User**.
 
 ### 3. Run an assessment
 
@@ -142,7 +154,7 @@ security-assessment-tool/
 |----------|---------|-------------|
 | `AZURE_OPENAI_ENDPOINT` | — | Azure OpenAI resource URL |
 | `AZURE_OPENAI_API_KEY` | — | Azure OpenAI API key (primary auth method) |
-| `AZURE_USE_CLI_AUTH` | `false` | Use Azure CLI auth token instead of API key |
+| `AZURE_USE_CLI_AUTH` | `false` | Use `az login` token instead of API key (requires Azure OpenAI RBAC role) |
 | `AZURE_OPENAI_DEPLOYMENT` | `gpt-4o` | Model deployment name |
 | `AZURE_OPENAI_API_VERSION` | `2024-08-01-preview` | API version |
 | `OPENAI_API_KEY` | — | Fallback: standard OpenAI key |
