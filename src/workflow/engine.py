@@ -36,6 +36,8 @@ from src.reporting.reporter import generate_report
 from src.scanners import dns_scanner, http_scanner, nmap_scanner, ssl_scanner
 from src.utils import resolve_ip, validate_target
 
+_HTTP_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD")
+
 
 class AssessmentEngine:
     """
@@ -452,11 +454,15 @@ class AssessmentEngine:
 
         if chosen_type == ProbeType.DNS_QUERY:
             self._console.print("[dim]Executing custom probe via DNS enumeration[/dim]")
-            return dns_scanner.run(session.target_host, timeout=15)
+            return dns_scanner.run(
+                session.target_host, timeout=self._config.request_timeout
+            )
 
         if chosen_type == ProbeType.SSL_CHECK:
             self._console.print("[dim]Executing custom probe via SSL/TLS analysis[/dim]")
-            return ssl_scanner.run(session.target_host, timeout=15)
+            return ssl_scanner.run(
+                session.target_host, timeout=self._config.request_timeout
+            )
 
         method = self._extract_http_method(description)
         url = self._extract_first_url(description) or session.target_url
@@ -506,7 +512,8 @@ class AssessmentEngine:
 
     @staticmethod
     def _extract_http_method(description: str) -> str:
-        match = re.search(r"\b(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\b", description, re.IGNORECASE)
+        method_pattern = "|".join(_HTTP_METHODS)
+        match = re.search(rf"\b({method_pattern})\b", description, re.IGNORECASE)
         if not match:
             return "GET"
         return match.group(1).upper()
@@ -516,7 +523,15 @@ class AssessmentEngine:
         match = re.search(r"https?://[^\s]+", description)
         if not match:
             return None
+
         candidate = match.group(0)
+        while candidate and candidate[-1] in ".,;":
+            candidate = candidate[:-1]
+        if candidate.endswith(")") and candidate.count("(") < candidate.count(")"):
+            candidate = candidate[:-1]
+        if candidate.endswith("]") and candidate.count("[") < candidate.count("]"):
+            candidate = candidate[:-1]
+
         parsed = urlparse(candidate)
         if parsed.scheme in ("http", "https") and parsed.netloc:
             return candidate
