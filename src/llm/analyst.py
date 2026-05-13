@@ -141,14 +141,25 @@ class SecurityAnalyst:
     def _build_client(self) -> AzureOpenAI | OpenAI:
         cfg = self._config
         if cfg.llm_provider == "azure":
-            token_provider = get_bearer_token_provider(
-                AzureCliCredential(),
-                "https://cognitiveservices.azure.com/.default",
-            )
-            return AzureOpenAI(
-                azure_endpoint=cfg.azure_openai_endpoint,
-                azure_ad_token_provider=token_provider,
-                api_version=cfg.azure_openai_api_version,
+            if cfg.azure_openai_api_key:
+                return AzureOpenAI(
+                    azure_endpoint=cfg.azure_openai_endpoint,
+                    api_key=cfg.azure_openai_api_key,
+                    api_version=cfg.azure_openai_api_version,
+                )
+            if cfg.azure_use_cli_auth:
+                token_provider = get_bearer_token_provider(
+                    AzureCliCredential(),
+                    "https://cognitiveservices.azure.com/.default",
+                )
+                return AzureOpenAI(
+                    azure_endpoint=cfg.azure_openai_endpoint,
+                    azure_ad_token_provider=token_provider,
+                    api_version=cfg.azure_openai_api_version,
+                )
+            raise RuntimeError(
+                "Azure OpenAI selected but no auth method is configured. "
+                "Set AZURE_OPENAI_API_KEY or AZURE_USE_CLI_AUTH=true."
             )
         return OpenAI(api_key=cfg.openai_api_key)
 

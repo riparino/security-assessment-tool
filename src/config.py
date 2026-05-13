@@ -14,6 +14,9 @@ class Config:
     azure_openai_endpoint: str = field(
         default_factory=lambda: os.getenv("AZURE_OPENAI_ENDPOINT", "")
     )
+    azure_openai_api_key: str = field(
+        default_factory=lambda: os.getenv("AZURE_OPENAI_API_KEY", "")
+    )
     azure_openai_deployment: str = field(
         default_factory=lambda: os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
     )
@@ -69,7 +72,9 @@ class Config:
     @property
     def llm_provider(self) -> str:
         """Determine which LLM provider to use."""
-        if self.azure_openai_endpoint and self.azure_use_cli_auth:
+        if self.azure_openai_endpoint and (
+            self.azure_openai_api_key or self.azure_use_cli_auth
+        ):
             return "azure"
         if self.openai_api_key:
             return "openai"
@@ -78,6 +83,13 @@ class Config:
     def validate(self) -> list[str]:
         """Return list of configuration warnings."""
         warnings: list[str] = []
+        if self.azure_openai_endpoint and not (
+            self.azure_openai_api_key or self.azure_use_cli_auth
+        ):
+            warnings.append(
+                "AZURE_OPENAI_ENDPOINT is set, but neither AZURE_OPENAI_API_KEY nor "
+                "AZURE_USE_CLI_AUTH=true is configured."
+            )
         if self.llm_provider == "none":
             warnings.append(
                 "No LLM credentials configured. Set AZURE_OPENAI_* or OPENAI_API_KEY "

@@ -5,19 +5,16 @@ Orchestrates the scan → LLM-analyse → suggest → execute → repeat loop.
 """
 from __future__ import annotations
 
-import time
+import re
 import uuid
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
-from rich.columns import Columns
 from rich.console import Console
 from rich.markup import escape
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Prompt
 from rich.rule import Rule
-from rich.spinner import Spinner
 from rich.status import Status
 from rich.table import Table
 from rich import box
@@ -439,16 +436,82 @@ class AssessmentEngine:
         else:
             hint_type = ProbeType.HTTP_REQUEST
 
-        url = session.target_url
+        chosen_type = self._infer_custom_probe_type(description, hint_type)
+
+        if chosen_type == ProbeType.PORT_SCAN:
+            ports = self._extract_ports(description) or self._config.nmap_ports
+            self._console.print(
+                f"[dim]Executing custom probe via nmap ({escape(ports)})[/dim]"
+            )
+            return nmap_scanner.run(
+                session.target_host,
+                ports=ports,
+                timeout=self._config.nmap_timeout,
+            )
+
+        if chosen_type == ProbeType.DNS_QUERY:
+            self._console.print("[dim]Executing custom probe via DNS enumeration[/dim]")
+            return dns_scanner.run(session.target_host, timeout=15)
+
+        if chosen_type == ProbeType.SSL_CHECK:
+            self._console.print("[dim]Executing custom probe via SSL/TLS analysis[/dim]")
+            return ssl_scanner.run(session.target_host, timeout=15)
+
+        method = self._extract_http_method(description)
+        url = self._extract_first_url(description) or session.target_url
         self._console.print(
-            f"[dim]Executing custom probe via HTTP GET: {escape(url)}[/dim]"
+            f"[dim]Executing custom probe via HTTP {method}: {escape(url)}[/dim]"
         )
         return http_scanner.run_custom_http(
             url=url,
-            method="GET",
+            method=method,
             verify_tls=self._config.verify_tls,
             timeout=self._config.request_timeout,
         )
+
+    @staticmethod
+    def _infer_custom_probe_type(description: str, hint_type: ProbeType) -> ProbeType:
+        text = description.lower()
+        if any(k in text for k in ("nmap", "port scan", "open port", "ports")):
+            return ProbeType.PORT_SCAN
+        if any(
+            k in text
+            for k in (
+                "dns",
+                "zone transfer",
+                "cname",
+                "mx record",
+                "txt record",
+                "ns record",
+            )
+        ):
+            return ProbeType.DNS_QUERY
+        if any(k in text for k in ("ssl", "tls", "certificate", "cipher")):
+            return ProbeType.SSL_CHECK
+        if hint_type in (ProbeType.PORT_SCAN, ProbeType.DNS_QUERY, ProbeType.SSL_CHECK):
+            return hint_type
+        return ProbeType.HTTP_REQUEST
+
+    @staticmethod
+    def _extract_ports(description: str) -> str | None:
+        match = re.search(r"(?:ports?|port range)\s*[:=]?\s*([0-9,\-\s]+)", description, re.IGNORECASE)
+        if not match:
+            return None
+        return match.group(1).replace(" ", "")
+
+    @staticmethod
+    def _extract_http_method(description: str) -> str:
+        match = re.search(r"\b(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)\b", description, re.IGNORECASE)
+        if not match:
+            return "GET"
+        return match.group(1).upper()
+
+    @staticmethod
+    def _extract_first_url(description: str) -> str | None:
+        match = re.search(r"https?://[^\s]+", description)
+        if not match:
+            return None
+        return match.group(0).rstrip(").,;")
 
     # ------------------------------------------------------------------
     # Report & exit

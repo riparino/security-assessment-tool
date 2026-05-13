@@ -141,7 +141,8 @@ security-assessment-tool/
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AZURE_OPENAI_ENDPOINT` | — | Azure OpenAI resource URL |
-| `AZURE_OPENAI_API_KEY` | — | Azure OpenAI API key |
+| `AZURE_OPENAI_API_KEY` | — | Azure OpenAI API key (primary auth method) |
+| `AZURE_USE_CLI_AUTH` | `false` | Use Azure CLI auth token instead of API key |
 | `AZURE_OPENAI_DEPLOYMENT` | `gpt-4o` | Model deployment name |
 | `AZURE_OPENAI_API_VERSION` | `2024-08-01-preview` | API version |
 | `OPENAI_API_KEY` | — | Fallback: standard OpenAI key |
